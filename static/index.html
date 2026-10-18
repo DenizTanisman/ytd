@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0c0d0f">
+<title>ytd</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Intel+One+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0d0f;
+    --surface: #15181d;
+    --surface-2: #1c2027;
+    --line: #2a3038;
+    --line-soft: #20252c;
+    --text: #ece4d4;
+    --muted: #8a8f98;
+    --faint: #5b6069;
+    --accent: #7a1f24;
+    --accent-hi: #9b2a30;
+    --ember: #c8873a;
+    --ok: #8fa37a;
+    --err: #c0544f;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #1a1d23 0%, var(--bg) 60%) fixed, var(--bg);
+    color: var(--text);
+    font-family: "Intel One Mono", ui-monospace, Menlo, monospace;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  button { font: inherit; color: inherit; }
+  main { max-width: 780px; margin: 0 auto; padding: 40px 16px 80px; }
+
+  /* Header */
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  header h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent-hi); }
+  .health { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .health i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .health.on i { background: var(--ok); box-shadow: 0 0 0 3px rgba(143, 163, 122, 0.15); }
+  .health.off i { background: var(--err); }
+  .ghost {
+    background: transparent; border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; font-size: 13px; color: var(--muted); cursor: pointer;
+  }
+  .ghost:hover { color: var(--text); border-color: var(--ember); }
+  header .ghost { margin-left: auto; }
+
+  /* Composer */
+  .composer {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 16px;
+  }
+  .field { position: relative; }
+  .url {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 104px 14px 14px; font: inherit; font-size: 16px; outline: none;
+  }
+  .url:focus { border-color: var(--ember); }
+  .url::placeholder { color: var(--faint); }
+  .paste {
+    position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 10px; font-size: 12px; color: var(--muted); cursor: pointer;
+  }
+  .paste:hover { color: var(--text); border-color: var(--ember); }
+
+  .preview {
+    display: none; gap: 14px; margin-top: 12px; padding: 10px;
+    background: var(--bg); border: 1px solid var(--line-soft); border-radius: 8px;
+  }
+  .preview.show { display: flex; }
+  .preview .thumb { width: 168px; }
+  .preview-body { min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+  .preview-title { font-weight: 500; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .preview-meta { font-size: 12px; color: var(--muted); }
+  .preview.loading .preview-title { color: var(--faint); }
+  .toggle { display: none; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 4px; cursor: pointer; width: fit-content; }
+  .toggle.show { display: inline-flex; }
+  .toggle input { accent-color: var(--ember); margin: 0; }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    background: transparent; color: var(--muted); border: 0; padding: 9px 16px; cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+  select {
+    background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 10px; font: inherit;
+  }
+  .go {
+    margin-left: auto; background: var(--accent); color: var(--text);
+    border: 1px solid var(--accent-hi); border-radius: 8px;
+    padding: 9px 24px; font-weight: 500; cursor: pointer;
+  }
+  .go:hover { background: var(--accent-hi); }
+  .go:disabled { opacity: 0.5; cursor: default; }
+  .msg:empty { display: none; }
+  .msg { margin-top: 10px; font-size: 13px; color: var(--err); overflow-wrap: anywhere; }
+
+  /* Downloads */
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin: 36px 0 12px; }
+  h2 {
+    margin: 0; font-size: 12px; font-weight: 500; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .section-head .ghost { padding: 3px 10px; font-size: 12px; }
+  .empty {
+    color: var(--faint); font-size: 14px; text-align: center;
+    border: 1px dashed var(--line); border-radius: var(--radius); padding: 28px 16px;
+  }
+
+  .thumb {
+    flex: none; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden;
+    background: var(--surface-2); display: grid; place-items: center;
+    color: var(--faint); font-size: 12px;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .job {
+    display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px; margin-bottom: 10px;
+  }
+  .job .thumb { width: 128px; }
+  .job-body { flex: 1; min-width: 0; }
+  .job-title { font-weight: 500; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .job-meta { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; flex-wrap: wrap; gap: 2px 12px; }
+  .st-done { color: var(--ok); }
+  .st-error { color: var(--err); }
+  .st-downloading, .st-processing, .st-queued { color: var(--ember); }
+
+  .bar { height: 4px; background: var(--bg); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--ember); transition: width 0.4s ease; }
+  .bar.indeterminate > i { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+  .job.done .bar > i { background: var(--ok); }
+  .job.done .bar, .job.error .bar { display: none; }
+
+  .err { font-size: 12px; color: var(--err); margin-top: 6px; overflow-wrap: anywhere; }
+
+  .files { list-style: none; padding: 0; margin: 8px 0 0; }
+  .files li { display: flex; align-items: center; gap: 8px; padding-top: 6px; font-size: 13px; }
+  .files li + li { border-top: 1px solid var(--line-soft); margin-top: 6px; }
+  .files .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .files a, .files button {
+    color: var(--text); background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 10px; font-size: 12px;
+    text-decoration: none; cursor: pointer; white-space: nowrap;
+  }
+  .files a:hover, .files button:hover { border-color: var(--ember); }
+
+  @media (max-width: 560px) {
+    main { padding-top: 24px; }
+    .go { margin-left: 0; width: 100%; }
+    .preview .thumb { width: 112px; }
+    .job .thumb { width: 88px; }
+    .files li { flex-wrap: wrap; }
+    .files .name { flex-basis: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>ytd<span>.</span></h1>
+    <span id="health" class="health"><i></i><span>bağlanıyor</span></span>
+    <button id="folder" class="ghost" type="button">Klasörü aç</button>
+  </header>
+
+  <form id="form" class="composer" autocomplete="off">
+    <div class="field">
+      <input id="url" class="url" type="url" placeholder="YouTube video veya playlist linki" required>
+      <button id="paste" class="paste" type="button">Yapıştır</button>
+    </div>
+
+    <div id="preview" class="preview" aria-live="polite">
+      <div class="thumb" id="pv-thumb"></div>
+      <div class="preview-body">
+        <div class="preview-title" id="pv-title"></div>
+        <div class="preview-meta" id="pv-meta"></div>
+        <label class="toggle" id="pv-toggle">
+          <input type="checkbox" id="whole-list"> Tüm oynatma listesini indir
+        </label>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Tür">
+        <button type="button" data-mode="video" aria-pressed="true">Video</button>
+        <button type="button" data-mode="audio" aria-pressed="false">Ses</button>
+        <button type="button" data-mode="transcript" aria-pressed="false">Transkript</button>
+      </div>
+      <select id="quality" aria-label="Kalite"></select>
+      <label class="toggle" id="tr-toggle" title="İndirilen dosyanın yanına, aynı adla .txt ve .srt">
+        <input type="checkbox" id="with-transcript"> Transkript de çıkar
+      </label>
+      <button id="go" class="go" type="submit">İndir</button>
+    </div>
+    <div id="msg" class="msg" role="status"></div>
+  </form>
+
+  <div class="section-head">
+    <h2>İndirmeler</h2>
+    <button id="clear" class="ghost" type="button" hidden>Bitenleri temizle</button>
+  </div>
+  <div id="jobs"></div>
+
+</main>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+  const ACTIVE = new Set(["queued", "downloading", "processing"]);
+  const STATUS = { queued: "sırada", downloading: "iniyor", processing: "işleniyor", done: "bitti", error: "hata" };
+  const YT_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"]);
+
+  const store = {
+    get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
+  };
+
+  const QUALITY = {
+    video: { def: "1080", opts: [["2160", "2160p"], ["1440", "1440p"], ["1080", "1080p"], ["720", "720p"], ["480", "480p"], ["360", "360p"]] },
+    audio: { def: "high", opts: [["high", "Yüksek · ~128 kbps"], ["low", "Düşük · ~48 kbps"]] },
+    // Text only, no video: the uploader's subtitles if any, else Whisper on this Mac.
+    transcript: { def: "auto", opts: [["auto", "Altyazı varsa altyazı"], ["whisper", "Her zaman Whisper"]] },
+  };
+  let mode = store.get("ytd.mode", "video");
+
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function setThumb(box, src, fallback) {
+    const current = box.querySelector("img");
+    if (src && /^https:\/\//.test(src)) {
+      if (current && current.getAttribute("src") === src) return;
+      const img = el("img");
+      img.alt = "";
+      img.referrerPolicy = "no-referrer";
+      img.loading = "lazy";
+      img.src = src;
+      box.replaceChildren(img);
+    } else if (!current) {
+      box.textContent = fallback;
+    }
+  }
+
+  function post(path, body) {
+    return fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  async function errorText(res, fallback) {
+    const body = await res.json().catch(() => ({}));
+    return typeof body.detail === "string" ? body.detail : fallback;
+  }
+
+  /* Mode + quality */
+  function applyMode() {
+    document.querySelectorAll(".seg button").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+    const q = QUALITY[mode];
+    $("#quality").replaceChildren(...q.opts.map(([value, label]) => {
+      const o = el("option", null, label);
+      o.value = value;
+      return o;
+    }));
+    // Transcript mode already is the transcript.
+    $("#tr-toggle").classList.toggle("show", mode !== "transcript");
+    const saved = store.get(`ytd.quality.${mode}`, q.def);
+    $("#quality").value = q.opts.some(([v]) => v === saved) ? saved : q.def;
+  }
+  document.querySelectorAll(".seg button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      mode = btn.dataset.mode;
+      store.set("ytd.mode", mode);
+      applyMode();
+    });
+  });
+  $("#quality").addEventListener("change", () => store.set(`ytd.quality.${mode}`, $("#quality").value));
+  $("#with-transcript").checked = store.get("ytd.withTranscript", "1") === "1";
+  $("#with-transcript").addEventListener("change", () =>
+    store.set("ytd.withTranscript", $("#with-transcript").checked ? "1" : "0"));
+  applyMode();
+
+  /* URL parsing + preview */
+  function parseYt(raw) {
+    try {
+      const u = new URL(raw.trim());
+      if (!YT_HOSTS.has(u.hostname.toLowerCase())) return null;
+      return { url: u.href, mixed: u.searchParams.has("v") && u.searchParams.has("list") };
+    } catch (_) { return null; }
+  }
+
+  function fmtDuration(s) {
+    if (!s) return null;
+    s = Math.round(s);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const mm = h ? String(m).padStart(2, "0") : String(m);
+    return `${h ? h + ":" : ""}${mm}:${String(sec).padStart(2, "0")}`;
+  }
+
+  let previewSeq = 0;
+  let previewTimer = null;
+
+  function wantsList() {
+    const parsed = parseYt($("#url").value);
+    return !parsed || !parsed.mixed || $("#whole-list").checked;
+  }
+
+  function schedulePreview(delay = 350) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(loadPreview, delay);
+  }
+
+  async function loadPreview() {
+    const parsed = parseYt($("#url").value);
+    const box = $("#preview");
+    $("#pv-toggle").classList.toggle("show", Boolean(parsed && parsed.mixed));
+    if (!parsed) { box.classList.remove("show"); return; }
+
+    const seq = ++previewSeq;
+    box.classList.add("show", "loading");
+    $("#pv-thumb").replaceChildren();
+    $("#pv-thumb").textContent = "…";
+    $("#pv-title").textContent = "Bilgiler alınıyor…";
+    $("#pv-meta").textContent = "";
+
+    try {
+      const res = await post("/api/preview", { url: parsed.url, playlist: wantsList() });
+      if (seq !== previewSeq) return;
+      if (!res.ok) throw new Error(await errorText(res, "Önizleme alınamadı"));
+      const info = await res.json();
+      box.classList.remove("loading");
+      setThumb($("#pv-thumb"), info.thumbnail, info.playlist ? "liste" : "video");
+      $("#pv-title").textContent = info.title || parsed.url;
+      const bits = [info.channel];
+      if (info.playlist) bits.push(`Oynatma listesi · ${info.count ?? "?"} video`);
+      else bits.push(fmtDuration(info.duration));
+      $("#pv-meta").textContent = bits.filter(Boolean).join(" · ");
+    } catch (err) {
+      if (seq !== previewSeq) return;
+      box.classList.remove("loading");
+      $("#pv-thumb").textContent = "!";
+      $("#pv-title").textContent = "Önizleme alınamadı";
+      $("#pv-meta").textContent = err.message;
+    }
+  }
+
+  $("#url").addEventListener("input", () => schedulePreview());
+  $("#whole-list").addEventListener("change", () => schedulePreview(0));
+
+  function fillUrl(text) {
+    $("#url").value = text.trim();
+    $("#msg").textContent = "";
+    schedulePreview(0);
+  }
+
+  $("#paste").addEventListener("click", async () => {
+    try {
+      fillUrl(await navigator.clipboard.readText());
+    } catch (_) {
+      $("#url").focus();
+      $("#msg").textContent = "Panoya erişilemedi. ⌘V ile yapıştır.";
+    }
+  });
+
+  // ⌘V anywhere on the page drops the link into the field.
+  document.addEventListener("paste", (e) => {
+    if (e.target === $("#url")) return;
+    const text = e.clipboardData?.getData("text") || "";
+    if (parseYt(text)) { e.preventDefault(); fillUrl(text); }
+  });
+
+  /* Submit */
+  $("#form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#msg").textContent = "";
+    $("#go").disabled = true;
+    try {
+      const res = await post("/api/downloads", {
+        url: $("#url").value.trim(),
+        mode,
+        ...(mode === "video"
+          ? { max_height: Number($("#quality").value) }
+          : mode === "audio"
+          ? { audio_quality: $("#quality").value }
+          : { transcript_source: $("#quality").value }),
+        ...(mode !== "transcript" ? { with_transcript: $("#with-transcript").checked } : {}),
+        playlist: wantsList(),
+      });
+      if (!res.ok) throw new Error(await errorText(res, "İstek reddedildi"));
+      $("#url").value = "";
+      $("#whole-list").checked = false;
+      previewSeq++;
+      $("#preview").classList.remove("show");
+      $("#pv-toggle").classList.remove("show");
+      poll();
+    } catch (err) {
+      $("#msg").textContent = err.message;
+    } finally {
+      $("#go").disabled = false;
+    }
+  });
+
+  /* Jobs */
+  function fmtSpeed(bps) {
+    if (!bps) return null;
+    const units = ["B/s", "KB/s", "MB/s", "GB/s"];
+    let i = 0;
+    while (bps >= 1024 && i < units.length - 1) { bps /= 1024; i++; }
+    return `${bps.toFixed(1)} ${units[i]}`;
+  }
+
+  function fmtEta(s) {
+    if (s == null) return null;
+    const m = Math.floor(s / 60);
+    return `${m}:${String(Math.floor(s % 60)).padStart(2, "0")} kaldı`;
+  }
+
+  const cards = new Map();
+
+  function buildCard(job) {
+    const card = el("article", "job");
+    const thumb = el("div", "thumb");
+    const body = el("div", "job-body");
+    const title = el("div", "job-title");
+    const meta = el("div", "job-meta");
+    const bar = el("div", "bar");
+    const fill = el("i");
+    const err = el("div", "err");
+    const files = el("ul", "files");
+    bar.append(fill);
+    body.append(title, meta, bar, err, files);
+    card.append(thumb, body);
+    return { card, thumb, title, meta, bar, fill, err, files, fileCount: -1 };
+  }
+
+  function updateCard(c, job) {
+    c.card.className = `job ${job.status}`;
+    setThumb(c.thumb, job.thumbnail, { audio: "ses", transcript: "metin" }[job.mode] || "video");
+    c.title.textContent = job.title || job.url;
+
+    const bits = [
+      [job.mode === "audio" ? `ses · ${job.quality === "low" ? "düşük" : "yüksek"}`
+        : job.mode === "transcript" ? `metin · ${job.quality === "auto" ? "altyazı/whisper" : job.quality}`
+        : `video · ${job.quality}`],
+      ...(job.transcript && job.mode !== "transcript" ? [["+ metin"]] : []),
+      [job.status === "processing" && job.stage === "whisper" ? "metne çevriliyor"
+        : job.status === "processing" && job.stage === "altyazı" ? "altyazı alınıyor"
+        : job.status === "downloading" && job.stage === "ses" ? "ses iniyor"
+        : STATUS[job.status] || job.status, `st-${job.status}`],
+    ];
+    if (job.channel) bits.splice(0, 0, [job.channel]);
+    if (job.items) bits.push([`${job.item ?? "?"}/${job.items}`]);
+    if (job.status === "downloading" && job.progress != null) bits.push([`%${Math.round(job.progress)}`]);
+    const speed = fmtSpeed(job.speed);
+    if (speed) bits.push([speed]);
+    const eta = fmtEta(job.eta);
+    if (eta) bits.push([eta]);
+    c.meta.replaceChildren(...bits.map(([t, cls]) => el("span", cls, t)));
+
+    const unknown = job.progress == null || job.status === "queued" || job.status === "processing";
+    c.bar.classList.toggle("indeterminate", unknown);
+    c.fill.style.width = unknown ? "" : `${job.progress}%`;
+
+    c.err.textContent = job.error || "";
+    c.err.hidden = !job.error;
+
+    if (job.files.length !== c.fileCount) {
+      c.fileCount = job.files.length;
+      // One row per downloaded file; its transcript (.txt / .srt with the
+      // same name) shows as links on that row instead of rows of its own.
+      const stem = (n) => n.replace(/\.[^.]+$/, "");
+      const isText = (n) => /\.(txt|srt)$/i.test(n);
+      const link = (f, label) => {
+        const a = el("a", null, label);
+        a.href = `/api/downloads/${job.id}/files/${f.index}`;
+        a.target = "_blank";
+        a.rel = "noopener";
+        return a;
+      };
+      const media = job.files.filter((f) => !isText(f.name));
+      const rows = media.length ? media : job.files.filter((f) => /\.txt$/i.test(f.name));
+      c.files.replaceChildren(...rows.map((f) => {
+        const li = el("li");
+        li.append(el("span", "name", f.name));
+        const same = (ext) => job.files.find((t) => t !== f && stem(t.name) === stem(f.name)
+          && t.name.toLowerCase().endsWith(ext));
+        li.append(link(f, "Aç"));
+        const txt = same(".txt");
+        if (txt) li.append(link(txt, "Metin"));
+        const srt = same(".srt");
+        if (srt) li.append(link(srt, "SRT"));
+        if (!txt && !isText(f.name) && job.status === "done") {
+          // A finished download without text: transcribe it now.
+          const make = el("button", null, "Transkript çıkar");
+          make.type = "button";
+          make.addEventListener("click", async () => {
+            make.disabled = true;
+            const res = await post(`/api/downloads/${job.id}/files/${f.index}/transcript`);
+            if (!res.ok) make.disabled = false;
+            poll();
+          });
+          li.append(make);
+        }
+        const reveal = el("button", null, "Finder'da göster");
+        reveal.type = "button";
+        reveal.addEventListener("click", () => post(`/api/downloads/${job.id}/files/${f.index}/reveal`));
+        li.append(reveal);
+        return li;
+      }));
+    }
+  }
+
+  function render(jobs) {
+    const box = $("#jobs");
+    const seen = new Set();
+    const nodes = jobs.map((job) => {
+      seen.add(job.id);
+      let c = cards.get(job.id);
+      if (!c) { c = buildCard(job); cards.set(job.id, c); }
+      updateCard(c, job);
+      return c.card;
+    });
+    for (const id of cards.keys()) if (!seen.has(id)) cards.delete(id);
+    if (!nodes.length) nodes.push(el("p", "empty", "Henüz indirme yok. Bir link yapıştır."));
+    box.replaceChildren(...nodes);
+    $("#clear").hidden = !jobs.some((j) => !ACTIVE.has(j.status));
+  }
+
+  function setHealth(ok) {
+    const h = $("#health");
+    h.className = `health ${ok ? "on" : "off"}`;
+    h.lastElementChild.textContent = ok ? "çalışıyor" : "sunucu kapalı";
+  }
+
+  // The server sleeps after 5 idle minutes and launchd wakes it on the next request,
+  // so the page only polls while something is downloading. An open tab must not keep it awake.
+  let pollTimer = null;
+  async function poll(retries = 3) {
+    clearTimeout(pollTimer);
+    try {
+      const res = await fetch("/api/downloads");
+      if (!res.ok) throw new Error(res.statusText);
+      const jobs = await res.json();
+      setHealth(true);
+      render(jobs);
+      if (jobs.some((j) => ACTIVE.has(j.status))) {
+        pollTimer = setTimeout(poll, document.hidden ? 5000 : 1000);
+      }
+    } catch (_) {
+      // A cold start takes a second or two; retry before calling it down.
+      if (retries > 0) pollTimer = setTimeout(() => poll(retries - 1), 1500);
+      else setHealth(false);
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+  window.addEventListener("focus", () => poll());
+
+  $("#clear").addEventListener("click", async () => {
+    await fetch("/api/downloads", { method: "DELETE" });
+    poll();
+  });
+  $("#folder").addEventListener("click", () => post("/api/reveal"));
+
+  // ?url= comes from the saved Chrome bookmarklet; it only prefills, never downloads.
+  const incoming = new URLSearchParams(location.search).get("url");
+  if (incoming && parseYt(incoming)) {
+    fillUrl(incoming);
+    history.replaceState(null, "", "/");
+  }
+
+  poll();
+</script>
+</body>
+</html>
