@@ -17,7 +17,7 @@ Kişisel YouTube indirici: video, ses ya da sadece transkript. Mac'te çalışan
 
 ## Kurulum
 
-Gerekenler: macOS, Python 3, `ffmpeg` (`brew install ffmpeg`). Whisper ile transkript için Apple Silicon ve [Ses Bölücü](https://github.com/DenizTanisman/ses-bolucu) yardımcısının kurduğu mlx-whisper.
+Gerekenler: macOS, Python 3, `ffmpeg` (`brew install ffmpeg`). Whisper ile transkript için Apple Silicon ve [Ses Bölücü](https://github.com/DenizTanisman/media-splitter) yardımcısının kurduğu mlx-whisper.
 
 ```sh
 python3 -m venv .venv
