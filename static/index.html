@@ -55,6 +55,7 @@
   }
   .ghost:hover { color: var(--text); border-color: var(--ember); }
   header .ghost { margin-left: auto; }
+  header .ghost + .ghost { margin-left: 0; }
 
   /* Composer */
   .composer {
@@ -177,12 +178,13 @@
   <header>
     <h1>ytd<span>.</span></h1>
     <span id="health" class="health"><i></i><span>bağlanıyor</span></span>
+    <button id="login" class="ghost" type="button" title="Özel ve üyelere özel videolar, Instagram için hesap girişi">Giriş</button>
     <button id="folder" class="ghost" type="button">Klasörü aç</button>
   </header>
 
   <form id="form" class="composer" autocomplete="off">
     <div class="field">
-      <input id="url" class="url" type="url" placeholder="YouTube video veya playlist linki" required>
+      <input id="url" class="url" type="url" placeholder="YouTube ya da Instagram linki" required>
       <button id="paste" class="paste" type="button">Yapıştır</button>
     </div>
 
@@ -204,6 +206,10 @@
         <button type="button" data-mode="transcript" aria-pressed="false">Transkript</button>
       </div>
       <select id="quality" aria-label="Kalite"></select>
+      <select id="codec" aria-label="Video biçimi" title="AV1: aynı kalitede yarı boyut, 2160p'ye kadar; QuickTime açmaz (VLC / Chrome açar). H.264: QuickTime'da açılır, en fazla 1080p.">
+        <option value="av1">AV1 · MKV (verimli)</option>
+        <option value="h264">H.264 · MP4 (QuickTime)</option>
+      </select>
       <label class="toggle" id="tr-toggle" title="İndirilen dosyanın yanına, aynı adla .txt ve .srt">
         <input type="checkbox" id="with-transcript"> Transkript de çıkar
       </label>
@@ -224,7 +230,8 @@
   const $ = (s) => document.querySelector(s);
   const ACTIVE = new Set(["queued", "downloading", "processing"]);
   const STATUS = { queued: "sırada", downloading: "iniyor", processing: "işleniyor", done: "bitti", error: "hata" };
-  const YT_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"]);
+  const YT_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be",
+    "instagram.com", "www.instagram.com", "m.instagram.com"]);
 
   const store = {
     get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (_) { return d; } },
@@ -233,7 +240,7 @@
 
   const QUALITY = {
     video: { def: "1080", opts: [["2160", "2160p"], ["1440", "1440p"], ["1080", "1080p"], ["720", "720p"], ["480", "480p"], ["360", "360p"]] },
-    audio: { def: "high", opts: [["high", "Yüksek · ~128 kbps"], ["low", "Düşük · ~48 kbps"]] },
+    audio: { def: "high", opts: [["high", "Yüksek · ~128 kbps"], ["low", "Düşük · ~48 kbps"], ["opus", "Opus · ~130 kbps"]] },
     // Text only, no video: the uploader's subtitles if any, else Whisper on this Mac.
     transcript: { def: "auto", opts: [["auto", "Altyazı varsa altyazı"], ["whisper", "Her zaman Whisper"]] },
   };
@@ -286,6 +293,7 @@
     }));
     // Transcript mode already is the transcript.
     $("#tr-toggle").classList.toggle("show", mode !== "transcript");
+    $("#codec").hidden = mode !== "video";
     const saved = store.get(`ytd.quality.${mode}`, q.def);
     $("#quality").value = q.opts.some(([v]) => v === saved) ? saved : q.def;
   }
@@ -297,6 +305,8 @@
     });
   });
   $("#quality").addEventListener("change", () => store.set(`ytd.quality.${mode}`, $("#quality").value));
+  $("#codec").value = store.get("ytd.codec", "av1") === "h264" ? "h264" : "av1";
+  $("#codec").addEventListener("change", () => store.set("ytd.codec", $("#codec").value));
   $("#with-transcript").checked = store.get("ytd.withTranscript", "1") === "1";
   $("#with-transcript").addEventListener("change", () =>
     store.set("ytd.withTranscript", $("#with-transcript").checked ? "1" : "0"));
@@ -401,7 +411,7 @@
         url: $("#url").value.trim(),
         mode,
         ...(mode === "video"
-          ? { max_height: Number($("#quality").value) }
+          ? { max_height: Number($("#quality").value), video_codec: $("#codec").value }
           : mode === "audio"
           ? { audio_quality: $("#quality").value }
           : { transcript_source: $("#quality").value }),
@@ -461,7 +471,7 @@
     c.title.textContent = job.title || job.url;
 
     const bits = [
-      [job.mode === "audio" ? `ses · ${job.quality === "low" ? "düşük" : "yüksek"}`
+      [job.mode === "audio" ? `ses · ${({ low: "düşük", opus: "opus" })[job.quality] ?? "yüksek"}`
         : job.mode === "transcript" ? `metin · ${job.quality === "auto" ? "altyazı/whisper" : job.quality}`
         : `video · ${job.quality}`],
       ...(job.transcript && job.mode !== "transcript" ? [["+ metin"]] : []),
@@ -583,6 +593,7 @@
     poll();
   });
   $("#folder").addEventListener("click", () => post("/api/reveal"));
+  $("#login").addEventListener("click", () => post("/api/login"));
 
   // ?url= comes from the saved Chrome bookmarklet; it only prefills, never downloads.
   const incoming = new URLSearchParams(location.search).get("url");

@@ -30,16 +30,16 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from ytd import DEFAULT_OUT, build_options
+from ytd import (
+    DEFAULT_OUT, INSTAGRAM_HOSTS, YOUTUBE_HOSTS, LoginMissing, build_options,
+    forget_login_cookies, needs_login, open_login_window, wants_youtube_login, with_login,
+)
 
 HOST = "127.0.0.1"
 PORT = 8765
 ALLOWED_HOST_HEADERS = {f"{HOST}:{PORT}", f"localhost:{PORT}"}
 ALLOWED_ORIGINS = {f"http://{h}" for h in ALLOWED_HOST_HEADERS}
-ALLOWED_URL_HOSTS = {
-    "youtube.com", "www.youtube.com", "m.youtube.com",
-    "music.youtube.com", "youtu.be",
-}
+ALLOWED_URL_HOSTS = {*YOUTUBE_HOSTS, *INSTAGRAM_HOSTS}
 OUT_DIR = DEFAULT_OUT.expanduser().resolve()
 STATIC_DIR = Path(__file__).parent / "static"
 ACTIVE = {"queued", "downloading", "processing"}
@@ -89,7 +89,10 @@ class DownloadRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     mode: Literal["video", "audio", "transcript"] = "video"
     max_height: Literal[360, 480, 720, 1080, 1440, 2160] = 1080
-    audio_quality: Literal["high", "low"] = "high"
+    # Video: AV1/VP9 + Opus in MKV (half the size, up to 2160p; docs/video-av1-olcum.md)
+    # or H.264 + AAC in MP4 (plays in QuickTime, at most 1080p).
+    video_codec: Literal["h264", "av1"] = "av1"
+    audio_quality: Literal["high", "low", "opus"] = "high"
     # Transcript: the uploader's subtitles when there are any, else Whisper.
     transcript_source: Literal["auto", "whisper"] = "auto"
     # Video / audio download: also save the transcript next to each file,
@@ -124,8 +127,28 @@ def validate_url(raw: str) -> str:
     parsed = urlparse(raw.strip())
     host = (parsed.hostname or "").lower()
     if parsed.scheme not in ("http", "https") or host not in ALLOWED_URL_HOSTS:
-        raise HTTPException(status_code=400, detail="Sadece YouTube linkleri kabul edilir")
+        raise HTTPException(status_code=400, detail="Sadece YouTube ve Instagram linkleri kabul edilir")
     return parsed.geturl()
+
+
+def friendly_error(exc: Exception, url: str) -> str:
+    """Short text for the UI. Login and rate-limit errors are reworded; a
+    refused login also drops the cached cookies so the next try reads them
+    from Chrome again."""
+    if isinstance(exc, LoginMissing):
+        return str(exc)
+    text = str(exc)
+    if needs_login(url) and any(k in text.lower() for k in ("login", "rate-limit", "rate limit", "401", "403")):
+        forget_login_cookies()
+        return ("Instagram içeriği vermedi: giriş istedi ya da kısa sürede çok istek oldu. "
+                "Chrome'da Instagram'a girişli olduğundan emin ol, biraz bekleyip tekrar dene.")
+    if wants_youtube_login(url, [text]):
+        # with_login already retried with the account, so the account has no access.
+        forget_login_cookies()
+        return ("YouTube bu videoyu hesabınla da vermedi: üyesi olmadığın bir kanalın videosu "
+                "ya da sana paylaşılmamış özel bir video olabilir. Chrome'da doğru hesapla "
+                "girişli olduğundan emin ol.")
+    return text[:300]
 
 
 def single_video_url(url: str) -> str:
@@ -193,7 +216,7 @@ def resolve_file(job_id: str, index: int) -> Path:
 
 
 def run_job(job_id: str, url: str, mode: str, max_height: int, audio_quality: str,
-            with_transcript: bool = False) -> None:
+            with_transcript: bool = False, video_codec: str = "av1") -> None:
     def on_progress(d: dict) -> None:
         info = d.get("info_dict") or {}
         if d["status"] == "downloading":
@@ -218,12 +241,17 @@ def run_job(job_id: str, url: str, mode: str, max_height: int, audio_quality: st
         with lock:
             jobs[job_id]["files"].append(str(Path(filepath).resolve()))
 
-    opts = build_options(OUT_DIR, mode == "audio", max_height, audio_quality)
+    opts = build_options(OUT_DIR, mode == "audio", max_height, audio_quality, video_codec)
     opts.update(progress_hooks=[on_progress], post_hooks=[on_done], quiet=True, noprogress=True)
 
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            code = ydl.download([url])
+        last: list = []  # the downloader of the last try, for its errors
+
+        def fetch(ydl) -> int:
+            last[:] = [ydl]
+            return ydl.download([url])
+
+        code = with_login(url, opts, fetch)
         with lock:
             has_files = bool(jobs[job_id]["files"])
         transcript_error = None
@@ -245,10 +273,12 @@ def run_job(job_id: str, url: str, mode: str, max_height: int, audio_quality: st
             update(job_id, status="done", progress=100, stage=None, item=None, items=None,
                    error=" · ".join(errors) or None)
         else:
+            errors = last[0].errors if last else []
             update(job_id, status="error",
-                   error="Hiçbir şey inmedi. Daha önce indirilmiş ya da erişilemiyor.")
+                   error=friendly_error(RuntimeError(errors[-1]), url) if errors
+                   else "Hiçbir şey inmedi. Daha önce indirilmiş ya da erişilemiyor.")
     except Exception as exc:  # noqa: BLE001 - surface a short message to the UI
-        update(job_id, status="error", error=str(exc)[:300])
+        update(job_id, status="error", error=friendly_error(exc, url))
     save_jobs()
 
 
@@ -292,6 +322,8 @@ def transcribe_files(job_id: str) -> str | None:
 
     with lock:
         media = [f for f in jobs[job_id]["files"] if not is_text(f)]
+        # Instagram has no subtitles, and its ids would be mistaken for YouTube ones.
+        from_instagram = needs_login(jobs[job_id]["url"])
     failed = 0
     for i, path in enumerate(media, 1):
         update(job_id, status="processing", stage="altyazı", progress=None,
@@ -301,7 +333,8 @@ def transcribe_files(job_id: str) -> str | None:
             made = siblings  # already transcribed (earlier, or by hand)
         else:
             match = VIDEO_ID.search(Path(path).stem.removesuffix(" (low)"))
-            url = f"https://www.youtube.com/watch?v={match.group(1)}" if match else None
+            url = (f"https://www.youtube.com/watch?v={match.group(1)}"
+                   if match and not from_instagram else None)
 
             def on_progress(**fields) -> None:
                 if fields.get("stage"):
@@ -343,7 +376,8 @@ def run_transcript_job(job_id: str, url: str, force_whisper: bool) -> None:
                 jobs[job_id]["files"].append(str(Path(path).resolve()))
         update(job_id, status="done", progress=100, speed=None, eta=None, stage=None, error=None)
     except Exception as exc:  # noqa: BLE001 - surface a short message to the UI
-        update(job_id, status="error", speed=None, eta=None, stage=None, error=str(exc)[:300])
+        update(job_id, status="error", speed=None, eta=None, stage=None,
+               error=friendly_error(exc, url))
     save_jobs()
 
 
@@ -355,10 +389,9 @@ def preview(req: PreviewRequest) -> dict:
     opts = {"quiet": True, "no_warnings": True, "skip_download": True,
             "extract_flat": "in_playlist", "noplaylist": not req.playlist}
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+        info = with_login(url, opts, lambda ydl: ydl.extract_info(url, download=False))
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=422, detail=str(exc)[:300]) from exc
+        raise HTTPException(status_code=422, detail=friendly_error(exc, url)) from exc
     is_list = info.get("_type") == "playlist"
     return {
         "title": info.get("title"),
@@ -379,7 +412,8 @@ def create_download(req: DownloadRequest) -> dict:
     job = {
         "id": job_id, "url": url, "mode": req.mode, "status": "queued",
         "quality": (
-            f"{req.max_height}p" if req.mode == "video"
+            f"{req.max_height}p{' · AV1' if req.video_codec == 'av1' else ''}"
+            if req.mode == "video"
             else req.audio_quality if req.mode == "audio"
             else req.transcript_source
         ),
@@ -395,7 +429,7 @@ def create_download(req: DownloadRequest) -> dict:
         executor.submit(run_transcript_job, job_id, url, req.transcript_source == "whisper")
     else:
         executor.submit(run_job, job_id, url, req.mode, req.max_height, req.audio_quality,
-                        req.with_transcript)
+                        req.with_transcript, req.video_codec)
     return public(job)
 
 
@@ -459,6 +493,12 @@ def reveal_file(job_id: str, index: int) -> None:
 def reveal_root() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     subprocess.run(["open", str(OUT_DIR)], check=False)
+
+
+@app.post("/api/login", status_code=204)
+def login() -> None:
+    """Opens ytd's Chrome window for signing in to YouTube and Instagram."""
+    open_login_window()
 
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

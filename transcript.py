@@ -31,7 +31,7 @@ from typing import Callable
 
 import yt_dlp
 
-from ytd import AUDIO_FORMATS, DEFAULT_OUT, build_options
+from ytd import AUDIO_FORMATS, DEFAULT_OUT, build_options, with_login
 
 WHISPER = Path(
     "~/Library/Application Support/ses-bolucu/venv/bin/mlx_whisper"
@@ -123,13 +123,41 @@ def _from_subtitles(info: dict, base: Path, tmp_dir: Path, report: Progress) -> 
         "subtitlesformat": "vtt",
         "outtmpl": {"default": str(tmp_dir / "sub.%(ext)s")},
     }
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.download([info["webpage_url"]])
+    with_login(info["webpage_url"], opts, lambda ydl: ydl.download([info["webpage_url"]]))
     vtt = next(tmp_dir.glob("*.vtt"), None)
     return _write_from_vtt(vtt, base) if vtt else None
 
 
-def _from_whisper(media: Path, base: Path, tmp_dir: Path, report: Progress) -> list[Path]:
+# Letters only Turkish (and Azerbaijani) titles have; ç, ö, ü are left out
+# because German and French use them too.
+_TURKISH_LETTERS = re.compile("[ğĞşŞıİ]")
+
+
+def _whisper_language(info: dict | None) -> str | None:
+    """The video's spoken language as Whisper wants it ("tr", "en"), or None
+    to let Whisper guess. In order: YouTube's metadata ("tr", "en-US"); the
+    one automatic caption track marked as the original ("tr-orig"); a title
+    with Turkish-only letters. Guessing is what to avoid on long Turkish
+    streams: Whisper then drifts into English on parts of them."""
+    info = info or {}
+    lang = info.get("language")
+    if lang:
+        return lang.split("-")[0].lower()
+    orig = {
+        key.split("-")[0].lower()
+        for key in (info.get("automatic_captions") or {})
+        if key.endswith("-orig")
+    }
+    if len(orig) == 1:
+        return orig.pop()
+    if _TURKISH_LETTERS.search(info.get("title") or ""):
+        return "tr"
+    return None
+
+
+def _from_whisper(
+    media: Path, base: Path, tmp_dir: Path, report: Progress, language: str | None = None
+) -> list[Path]:
     """Writes base.txt/.srt by running Whisper on [media] (any audio or
     video file ffmpeg reads)."""
     if not WHISPER.exists():
@@ -139,13 +167,16 @@ def _from_whisper(media: Path, base: Path, tmp_dir: Path, report: Progress) -> l
     # Music and silence make Whisper loop on its last sentence. Not feeding
     # it its own previous text and skipping hallucinations over silence
     # (needs word timestamps) stops most of it; _clean drops what is left.
+    # Without a fixed language, that same setting lets Whisper re-detect it
+    # on every window and drift into translating long stretches to English.
     subprocess.run(
         [str(WHISPER), str(media), "--model", WHISPER_MODEL,
          "--output-format", "srt", "--output-dir", str(tmp_dir),
          "--output-name", "out", "--verbose", "False",
          "--condition-on-previous-text", "False",
          "--word-timestamps", "True",
-         "--hallucination-silence-threshold", "2"],
+         "--hallucination-silence-threshold", "2",
+         *(["--language", language] if language else [])],
         check=True, capture_output=True,
     )
     made = tmp_dir / "out.srt"
@@ -196,8 +227,8 @@ def _write_cues(cues: list[tuple[str, str, str]], base: Path) -> list[Path]:
 
 
 def _info(url: str) -> dict:
-    with yt_dlp.YoutubeDL({**BASE_OPTS, "skip_download": True}) as ydl:
-        return ydl.extract_info(url, download=False)
+    return with_login(url, {**BASE_OPTS, "skip_download": True},
+                      lambda ydl: ydl.extract_info(url, download=False))
 
 
 def transcribe_file(
@@ -215,14 +246,17 @@ def transcribe_file(
     base = media.with_name(media.stem)
     with tempfile.TemporaryDirectory(prefix="ytd-transcript-") as tmp:
         tmp_dir = Path(tmp)
-        if url and not force_whisper:
+        info = None
+        if url:
             try:
-                made = _from_subtitles(_info(url), base, tmp_dir, report)
+                info = _info(url)
+                if not force_whisper:
+                    made = _from_subtitles(info, base, tmp_dir, report)
+                    if made:
+                        return made
             except yt_dlp.utils.DownloadError:
-                made = None  # subtitles unreachable: Whisper still works
-            if made:
-                return made
-        return _from_whisper(media, base, tmp_dir, report)
+                pass  # subtitles and language unreachable: Whisper still works
+        return _from_whisper(media, base, tmp_dir, report, _whisper_language(info))
 
 
 def transcribe(
@@ -275,12 +309,11 @@ def transcribe(
             "retries": 5,
             "fragment_retries": 5,
         }
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([info["webpage_url"]])
+        with_login(info["webpage_url"], opts, lambda ydl: ydl.download([info["webpage_url"]]))
         audio = next(tmp_dir.glob("audio.*"), None)
         if audio is None:
             raise RuntimeError("Ses indirilemedi")
-        return _from_whisper(audio, base, tmp_dir, report)
+        return _from_whisper(audio, base, tmp_dir, report, _whisper_language(info))
 
 
 def main() -> None:
