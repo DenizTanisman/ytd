@@ -84,3 +84,7 @@ claude mcp add --scope user ytd -- ~/Projects/ytd/.venv/bin/python ~/Projects/yt
 - `mcp_server.py` — Claude için MCP sunucusu (web altyazısı önce, sonra Mac kontrolü + Whisper).
 - `static/` — arayüz (tek sayfa, ana ekrana eklenebilir).
 - `install-autostart.sh` — launchd ile isteğe bağlı otomatik başlatma.
+
+## Lisans
+
+[MIT](LICENSE)
