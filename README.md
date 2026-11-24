@@ -58,7 +58,7 @@ launchd holds the port; the server starts when the page is opened and shuts down
 Rules: at least 5 GB must remain free after a download (`YTD_MIN_FREE_GB`), long jobs don't start on battery below 20% (`YTD_MIN_BATTERY`), and playlists are not accepted over MCP. Because the server runs on the Mac, the Mac has to be on and awake.
 
 ```sh
-claude mcp add --scope user ytd -- ~/Projects/ytd/.venv/bin/python ~/Projects/ytd/mcp_server.py
+claude mcp add --scope user ytd -- ~/Projects/araclar/ytd/.venv/bin/python ~/Projects/araclar/ytd/mcp_server.py
 ```
 
 ## Command line
