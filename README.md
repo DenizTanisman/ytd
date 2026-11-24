@@ -1,35 +1,35 @@
 # ytd
 
-Kişisel YouTube indirici: video, ses ya da sadece transkript. Mac'te çalışan küçük bir yerel web arayüzü (yalnızca `127.0.0.1`), arkada [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+Personal YouTube downloader: video, audio or just the transcript. A small local web UI that runs on the Mac (only on `127.0.0.1`), with [yt-dlp](https://github.com/yt-dlp/yt-dlp) underneath. The interface is in Turkish.
 
 ![ytd](screenshot.png)
 
-> Yalnızca indirme hakkın olan içerik için (kendi videoların, izin verilen ya da serbest lisanslı içerik) ve YouTube'un kullanım koşullarına uyarak kullan.
+> Use it only for content you have the right to download (your own videos, content you have permission for, or freely licensed content) and in line with YouTube's terms of service.
 
-## Neler yapar
+## What it does
 
-- **Video:** varsayılan **AV1 + Opus (MKV)**, 2160p'ye kadar: aynı kalitede H.264'ün yaklaşık yarı boyutu (VLC / Chrome açar, QuickTime açmaz). İstenirse **H.264 + AAC (MP4)**: QuickTime'da açılır ama YouTube H.264'ü en fazla 1080p verir. Ölçüm: [docs/video-av1-olcum.md](docs/video-av1-olcum.md).
-- **Ses:** M4A, yeniden kodlamadan (~128 kbps; "düşük" seçeneği ~48 kbps) ya da **Opus** (YouTube'un kendi Opus akışı, ~110–150 kbps, yine yeniden kodlamadan; `.opus` dosyası). Kapak ve bilgiler gömülü. Opus ile Whisper doğruluğu M4A ile aynı, dosya biraz daha küçük: ölçüm [docs/opus-whisper-olcum.md](docs/opus-whisper-olcum.md).
-- **Transkript:** yükleyenin altyazısı varsa onu kullanır; yoksa yalnızca sesi geçici olarak alıp bu Mac'te Whisper ile (mlx-whisper) yazıya çevirir. `.txt` ve zaman damgalı `.srt` yazar.
-- **"Transkript de çıkar":** indirilen her dosyanın yanına metnini ekler.
-- **Playlist:** tek linkle bütün liste; daha önce indirilenler atlanır (`.archive-*.txt`).
-- Dosyalar `~/Downloads/ytd/<kanal>/<başlık> [<id>].<uzantı>` olarak iner; "Klasörü aç" Finder'da gösterir.
+- **Video:** **AV1 + Opus (MKV)** by default, up to 2160p: about half the size of H.264 at the same quality (VLC and Chrome play it, QuickTime does not). Optionally **H.264 + AAC (MP4)**: opens in QuickTime, but YouTube serves H.264 only up to 1080p. Measurements: [docs/video-av1-olcum.md](docs/video-av1-olcum.md).
+- **Audio:** M4A without re-encoding (~128 kbps; the "low" option is ~48 kbps), or **Opus** (YouTube's own Opus stream, ~110–150 kbps, also without re-encoding; saved as `.opus`). Cover art and metadata are embedded. Whisper accuracy with Opus is the same as with M4A and the file is a bit smaller: see [docs/opus-whisper-olcum.md](docs/opus-whisper-olcum.md).
+- **Transcript:** uses the uploader's subtitles if there are any; otherwise it fetches only the audio temporarily and transcribes it on this Mac with Whisper (mlx-whisper). Writes `.txt` and a timestamped `.srt`.
+- **"Transkript de çıkar" (also make a transcript):** adds the text next to every downloaded file.
+- **Playlists:** a whole list from a single link; items downloaded before are skipped (`.archive-*.txt`).
+- Files are saved as `~/Downloads/ytd/<channel>/<title> [<id>].<ext>`; "Klasörü aç" (open folder) shows them in Finder.
 
-## Özel, üyelere özel ve yaş sınırlı videolar
+## Private, members-only and age-restricted videos
 
-Herkese açık videolar hesapsız iner. YouTube bir video için hesap isterse (sana paylaşılmış özel video, üyesi olduğun kanalın üyelere özel videosu, yaş doğrulaması) aynı istek bir kez de senin hesabınla denenir. Instagram da önce hesapsız denenir; hesap yalnızca gerektiğinde ve sınırlı kullanılır (aşağıya bak).
+Public videos download without an account. If YouTube asks for an account for a video (a private video shared with you, a members-only video from a channel you belong to, age verification), the same request is retried once with your account. Instagram is also tried without an account first; the account is used only when needed, and sparingly (see below).
 
-Hesap, ytd'nin kendi Chrome profilinden okunur (`~/Library/Application Support/ytd/chrome`). Bu profile bir kez giriş yapman yeter: arayüzde **Giriş** düğmesine bas (ya da `.venv/bin/python ytd.py --login`); açılan Chrome penceresinde YouTube'a (istersen Instagram'a da) gir ve pencereyi kapat. İlk okumada macOS Keychain izin sorabilir; "Her Zaman İzin Ver" de. Çerezler yalnızca bellekte tutulur, diske yazılmaz.
+The account is read from ytd's own Chrome profile (`~/Library/Application Support/ytd/chrome`). You only need to sign in to this profile once: press the **Giriş** (sign in) button in the UI (or run `.venv/bin/python ytd.py --login`), sign in to YouTube (and Instagram if you like) in the Chrome window that opens, then close the window. On the first read macOS Keychain may ask for permission; choose "Always Allow". Cookies are kept only in memory and never written to disk.
 
-Neden ayrı profil: macOS, Chrome'un ana profilini başka programlardan koruyor. Ayrıca günlük gezinme oturum çerezlerini sürekli yenilediği için ayrı profildeki giriş daha uzun süre geçerli kalıyor.
+Why a separate profile: macOS protects Chrome's main profile from other programs. Also, everyday browsing keeps rotating session cookies, so a sign-in in a separate profile stays valid longer.
 
-### Instagram hesabını yormamak
+### Going easy on the Instagram account
 
-Instagram gönderileri önce hesapsız denenir; herkese açık reel ve gönderilerin çoğu böyle iner ve hesaba hiç dokunulmaz. Hesap yalnızca Instagram'ın sadece giriş yapmış kullanıcıya gösterdiği gönderilerde kullanılır ve o da sınırlıdır: saatte en fazla 30 hesaplı istek, aralarında en az 8 saniye. Instagram hesabın isteklerini keserse (boş yanıt, 429, doğrulama) ytd 3 saat boyunca hesapla istek atmaz; hesapsız inenler bu sürede de iner. Durum `~/Library/Application Support/ytd/instagram_account.json` dosyasında tutulur. Toplu indirmelerde ana hesabın yerine ikinci bir Instagram hesabıyla giriş yapmak daha güvenlidir.
+Instagram posts are tried without an account first; most public reels and posts download this way and the account is never touched. The account is used only for posts Instagram shows to signed-in users, and even then it is rate-limited: at most 30 signed-in requests per hour, at least 8 seconds apart. If Instagram starts blocking the account's requests (empty response, 429, verification), ytd stops making signed-in requests for 3 hours; posts that work without an account keep downloading in the meantime. The state is kept in `~/Library/Application Support/ytd/instagram_account.json`. For bulk downloads it is safer to sign in with a second Instagram account instead of your main one.
 
-## Kurulum
+## Setup
 
-Gerekenler: macOS, Python 3, `ffmpeg` (`brew install ffmpeg`). Whisper ile transkript için Apple Silicon ve [Ses Bölücü](https://github.com/DenizTanisman/media-splitter) yardımcısının kurduğu mlx-whisper.
+Requirements: macOS, Python 3, `ffmpeg` (`brew install ffmpeg`). For Whisper transcripts: Apple Silicon and the mlx-whisper installed by the [Ses Bölücü](https://github.com/DenizTanisman/media-splitter) (media splitter) helper.
 
 ```sh
 python3 -m venv .venv
@@ -37,54 +37,54 @@ python3 -m venv .venv
 .venv/bin/python server.py          # http://127.0.0.1:8765
 ```
 
-Her açılışta kendiliğinden hazır olsun istersen:
+If you want it ready on every login:
 
 ```sh
 ./install-autostart.sh
 ```
 
-launchd portu tutar; sayfa açılınca sunucu başlar, 5 dakika boşta kalınca kapanır (arka planda sürekli çalışmaz).
+launchd holds the port; the server starts when the page is opened and shuts down after 5 minutes idle (it does not run in the background all the time).
 
-## Claude'dan kullanma (MCP)
+## Using it from Claude (MCP)
 
-`mcp_server.py` ytd'yi Claude'a araç olarak verir (Claude Code ve Claude Desktop'a kayıtlı, sunucu adı `ytd`). Claude'a link verip "transkriptini çıkar" ya da "videoyu indir" demek yeter.
+`mcp_server.py` exposes ytd to Claude as a tool (registered in Claude Code and Claude Desktop, server name `ytd`). Give Claude a link and say "get the transcript" or "download the video".
 
-- `get_transcript`: önce bu Mac'te daha önce çıkarılmış transkripte bakar. Yoksa altyazıyı **web'den** okur: yükleyenin altyazısı, o da yoksa YouTube'un otomatik altyazısı (`… (otomatik altyazı).txt`). Bu adımda hiçbir medya inmez ve saniyeler sürer. Web'de altyazı yoksa (Instagram, altyazısız videolar) Mac kontrol edilir, uygunsa sesi geçici olarak indirip Whisper ile yazıya döker. `method="whisper"` en doğru, noktalamalı metni verir.
-- `download`: video ya da ses indirir. Önce tahmini boyutu alır, boş diski ve gücü kontrol eder.
-- `system_check`: boş disk, şarj/pil, düşük güç modu, Whisper ve ffmpeg.
-- `job_status`: uzun işler (Whisper, büyük indirme) arka planda çalışır. İş sürerken Mac uykuya geçmez (`caffeinate`).
-- `transcribe_local_file`: Mac'teki bir dosyayı Whisper ile yazıya döker.
+- `get_transcript`: first checks for a transcript already made on this Mac. If there is none, it reads subtitles **from the web**: the uploader's subtitles, or failing that YouTube's automatic captions (`… (otomatik altyazı).txt`). No media is downloaded in this step and it takes seconds. If there are no subtitles on the web (Instagram, videos without captions), it checks the Mac and, if conditions allow, downloads the audio temporarily and transcribes it with Whisper. `method="whisper"` gives the most accurate, punctuated text.
+- `download`: downloads video or audio. It first gets the estimated size and checks free disk space and power.
+- `system_check`: free disk, charging/battery, Low Power Mode, Whisper and ffmpeg.
+- `job_status`: long jobs (Whisper, large downloads) run in the background. The Mac does not sleep while a job is running (`caffeinate`).
+- `transcribe_local_file`: transcribes a file on the Mac with Whisper.
 
-Kurallar: indirmeden sonra en az 5 GB boş kalmalı (`YTD_MIN_FREE_GB`), pilde %20'nin altındayken uzun iş başlamaz (`YTD_MIN_BATTERY`), oynatma listeleri MCP'den alınmaz. Sunucu Mac'te çalıştığı için Mac açık ve uyanık olmalı.
+Rules: at least 5 GB must remain free after a download (`YTD_MIN_FREE_GB`), long jobs don't start on battery below 20% (`YTD_MIN_BATTERY`), and playlists are not accepted over MCP. Because the server runs on the Mac, the Mac has to be on and awake.
 
 ```sh
 claude mcp add --scope user ytd -- ~/Projects/ytd/.venv/bin/python ~/Projects/ytd/mcp_server.py
 ```
 
-## Komut satırı
+## Command line
 
 ```sh
-.venv/bin/python ytd.py URL                 # video (AV1 + Opus, MKV), en fazla 1080p
+.venv/bin/python ytd.py URL                 # video (AV1 + Opus, MKV), up to 1080p
 .venv/bin/python ytd.py -q 2160 URL         # 4K (AV1)
-.venv/bin/python ytd.py --h264 URL          # QuickTime'da açılan MP4 (H.264, en fazla 1080p)
-.venv/bin/python ytd.py --opus URL          # sadece ses, Opus
-.venv/bin/python ytd.py -a URL              # sadece ses
-.venv/bin/python ytd.py -a --low URL        # küçük ses dosyası
-.venv/bin/python ytd.py -q 720 URL          # en fazla 720p
-.venv/bin/python ytd.py --login             # ytd'nin Chrome penceresinde hesaba giriş
-.venv/bin/python transcript.py URL          # altyazı varsa altyazı, yoksa Whisper
-.venv/bin/python transcript.py FILE.mp4     # indirilmiş dosyanın transkripti
+.venv/bin/python ytd.py --h264 URL          # MP4 that opens in QuickTime (H.264, up to 1080p)
+.venv/bin/python ytd.py --opus URL          # audio only, Opus
+.venv/bin/python ytd.py -a URL              # audio only
+.venv/bin/python ytd.py -a --low URL        # small audio file
+.venv/bin/python ytd.py -q 720 URL          # up to 720p
+.venv/bin/python ytd.py --login             # sign in to an account in ytd's Chrome window
+.venv/bin/python transcript.py URL          # subtitles if available, otherwise Whisper
+.venv/bin/python transcript.py FILE.mp4     # transcript of a downloaded file
 ```
 
-## Dosyalar
+## Files
 
-- `ytd.py` — yt-dlp ayarları ve komut satırı.
-- `server.py` — yerel web arayüzü (FastAPI): önizleme, indirme kuyruğu, transkript, Finder'da göster.
-- `transcript.py` — altyazı ya da Whisper ile transkript.
-- `mcp_server.py` — Claude için MCP sunucusu (web altyazısı önce, sonra Mac kontrolü + Whisper).
-- `static/` — arayüz (tek sayfa, ana ekrana eklenebilir).
-- `install-autostart.sh` — launchd ile isteğe bağlı otomatik başlatma.
+- `ytd.py` — yt-dlp settings and the command line.
+- `server.py` — local web UI (FastAPI): preview, download queue, transcript, show in Finder.
+- `transcript.py` — transcript from subtitles or Whisper.
+- `mcp_server.py` — MCP server for Claude (web subtitles first, then Mac checks + Whisper).
+- `static/` — the UI (single page, can be added to the home screen).
+- `install-autostart.sh` — optional autostart with launchd.
 
-## Lisans
+## License
 
 [MIT](LICENSE)

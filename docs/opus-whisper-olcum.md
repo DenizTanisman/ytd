@@ -1,55 +1,58 @@
-# Opus ses + Whisper transkript: ölçüm (22 Ekim 2026)
+# Opus audio + Whisper transcripts: measurements (22 October 2026)
 
-ytd'ye "Opus" ses seçeneği eklendi (`ytd.py -a --opus URL` ya da arayüzde Ses › Opus). YouTube'un
-Opus akışı (itag 251) yeniden kodlanmadan `.opus` dosyasına alınır. Bu notta Opus'un indirme ve
-Whisper transkripti üzerindeki etkisi M4A ile karşılaştırıldı.
+ytd gained an "Opus" audio option (`ytd.py -a --opus URL`, or Ses › Opus (Audio › Opus) in the UI). YouTube's
+Opus stream (itag 251) is saved to an `.opus` file without re-encoding. This note compares the effect of Opus
+on downloads and Whisper transcripts against M4A.
 
-## Yöntem
+## Method
 
-- **Videolar:** yükleyicinin elle yazdığı altyazısı olan iki konuşma
-  - İngilizce: TED-Ed, "How to manage your emotions" (4:51)
-  - Türkçe: TEDxIstanbul, "Korku, Kaygı ve Endişe" (14:38)
-- Her video için Opus ve M4A (yüksek) ses indirildi, ikisi de ytd'nin Whisper'ıyla
-  (`mlx-community/whisper-large-v3-turbo`, bu Mac'te, internetsiz) yazıya döküldü.
-- **Doğruluk:** Whisper metni, yükleyicinin elle yazdığı altyazıyla kelime kelime karşılaştırıldı.
-  - **WER:** kelime hata oranı (değişen + eksik + fazla kelime / altyazıdaki kelime)
-  - **CER:** harf hata oranı
-  - Karşılaştırmadan önce iki metin de küçük harfe çevrildi; noktalama, kesme işareti ve
-    [Müzik] gibi notlar atıldı. Türkçede I→ı, İ→i dönüşümü yapıldı.
-- Ölçüm betiği: oturumun scratchpad'inde `opus_test/olcum.py` (projeye alınmadı).
+- **Videos:** two talks with subtitles written by hand by the uploader
+  - English: TED-Ed, "How to manage your emotions" (4:51)
+  - Turkish: TEDxIstanbul, "Korku, Kaygı ve Endişe" (14:38)
+- For each video, Opus and M4A (high) audio was downloaded and both were transcribed with ytd's Whisper
+  (`mlx-community/whisper-large-v3-turbo`, on this Mac, offline).
+- **Accuracy:** the Whisper text was compared word by word with the uploader's hand-written subtitles.
+  - **WER:** word error rate (substituted + missing + extra words / words in the subtitles)
+  - **CER:** character error rate
+  - Before comparing, both texts were lowercased; punctuation, apostrophes and notes such as
+    [Müzik] (music) were removed. For Turkish, I→ı and İ→i were mapped.
+- Measurement script: `opus_test/olcum.py` in the session scratchpad (not added to the project).
 
-## Sonuçlar
+## Results
 
-| Video | Biçim | Süre | Bit hızı | Boyut | İndirme | Whisper | Hız | WER | CER |
+| Video | Format | Duration | Bitrate | Size | Download | Whisper | Speed | WER | CER |
 |---|---|---|---|---|---|---|---|---|---|
-| İngilizce (4:51) | Opus | 290,8 sn | 151 kbps | 5,48 MB | 2,6 sn | 28,0 sn | 10,4× | 8,6 % | 7,9 % |
-| İngilizce (4:51) | M4A | 290,9 sn | 138 kbps | 5,02 MB | 4,1 sn | 26,4 sn | 11,0× | 8,6 % | 7,9 % |
-| Türkçe (14:38) | Opus | 877,7 sn | 109 kbps | 11,96 MB | 3,5 sn | 95,0 sn | 9,2× | 6,9 % | 3,4 % |
-| Türkçe (14:38) | M4A | 877,7 sn | 132 kbps | 14,43 MB | 3,6 sn | 110,0 sn | 8,0× | 6,5 % | 3,4 % |
+| English (4:51) | Opus | 290.8 s | 151 kbps | 5.48 MB | 2.6 s | 28.0 s | 10.4× | 8.6 % | 7.9 % |
+| English (4:51) | M4A | 290.9 s | 138 kbps | 5.02 MB | 4.1 s | 26.4 s | 11.0× | 8.6 % | 7.9 % |
+| Turkish (14:38) | Opus | 877.7 s | 109 kbps | 11.96 MB | 3.5 s | 95.0 s | 9.2× | 6.9 % | 3.4 % |
+| Turkish (14:38) | M4A | 877.7 s | 132 kbps | 14.43 MB | 3.6 s | 110.0 s | 8.0× | 6.5 % | 3.4 % |
 
-"Hız": ses süresi / Whisper süresi. 10× = 10 dakikalık ses yaklaşık 1 dakikada yazıya döker.
+"Speed": audio duration / Whisper time. 10× means 10 minutes of audio is transcribed in about 1 minute.
 
-## Çıkarımlar
+## Takeaways
 
-- **Opus, M4A kadar doğru:** İngilizcede birebir aynı, Türkçede fark 0,4 puan (1.718 kelimede yaklaşık
-  7 kelime), harf hata oranı aynı. Fark gürültü düzeyinde.
-- **Opus daha küçük olabilir:** Türkçe konuşmada %17 daha küçük dosya (109 / 132 kbps). İngilizcede
-  YouTube'un Opus akışı biraz daha yüksek bit hızlıydı (151 / 138 kbps). Boyut, YouTube'un o video için
-  sunduğu akışa bağlı.
-- **Süre:** İndirme birkaç saniye. Whisper bu Mac'te yaklaşık 8–11× gerçek zamanlı: 15 dakikalık
-  konuşma 1,5–2 dakika, 1 saatlik yayın 6–8 dakika. Opus ile M4A arasındaki süre farkı ölçüm
-  dalgalanması düzeyinde.
-- **Hata oranı gerçekte daha düşük:** Elle yazılmış altyazı konuşmayı birebir yazmaz (dolgu sözcükleri,
-  tekrarlar, kısaltmalar atılır). İngilizcede Whisper'ın 45 kelime fazla yazması bunun işareti.
-  Kalan farkların bir kısmı yazım farkı (realize/realise gibi). Ölçülen WER bu yüzden üst sınırdır.
-- **Türkçe dil bilgisi:** YouTube bu Türkçe video için dil bilgisi vermedi, bu yüzden Whisper'a dil
-  verilemedi ve dil otomatik algılandı. Bu kısa, temiz konuşmada sorun olmadı (İngilizceye kayan satır:
-  %0). Ama uzun canlı yayınlarda otomatik algılama yazının bir kısmını İngilizceye çevirebiliyor
-  (Haluk Tatar serisinde görüldü). Bu yüzden ytd artık dil bilgisi yoksa sırayla şunlara bakar:
-  otomatik altyazılardaki tek "-orig" işareti (videonun asıl dili), sonra başlıkta Türkçeye özgü
-  harfler (ğ, ş, ı, İ) varsa Türkçe. Bu test videosu artık başlığından Türkçe olarak tanınır.
+- **Opus is as accurate as M4A:** identical in English; in Turkish the difference is 0.4 points (about
+  7 words out of 1,718), with the same character error rate. The difference is at noise level.
+- **Opus can be smaller:** 17% smaller file for the Turkish talk (109 / 132 kbps). For English, YouTube's
+  Opus stream had a slightly higher bitrate (151 / 138 kbps). Size depends on the stream YouTube serves
+  for that video.
+- **Time:** downloads take a few seconds. Whisper runs at about 8–11× real time on this Mac: a 15-minute
+  talk takes 1.5–2 minutes, a 1-hour stream 6–8 minutes. The time difference between Opus and M4A is
+  within measurement noise.
+- **The real error rate is lower:** hand-written subtitles don't transcribe speech verbatim (filler words,
+  repetitions and contractions are dropped). Whisper writing 45 extra words in English is a sign of this.
+  Some of the remaining differences are spelling variants (realize/realise). The measured WER is therefore
+  an upper bound.
+- **Turkish language detection:** YouTube gave no language information for this Turkish video, so no
+  language could be passed to Whisper and it was auto-detected. That was fine on this short, clean talk
+  (lines drifting into English: 0%). But on long live streams auto-detection can turn part of the text
+  into English (seen in the Haluk Tatar series). So when there is no language information, ytd now checks,
+  in order: a single "-orig" marker in the automatic captions (the video's original language), then
+  Turkish-specific letters in the title (ğ, ş, ı, İ), which mean Turkish. This test video is now recognised
+  as Turkish from its title.
 
-## İlk ölçümde düzeltilen bir hata
+## A bug fixed in the first measurement
 
-İlk ölçümde İngilizce WER %12,2 çıktı. Sebep ölçüm koduydu, Whisper değil: altyazıdaki tipografik kesme
-işareti (they’re) kelimeyi ikiye bölüyordu. Kesme işaretleri iki metinden de atılınca WER %8,6'ya indi.
+The first measurement gave an English WER of 12.2%. The cause was the measurement code, not Whisper: the
+typographic apostrophe in the subtitles (they’re) split the word in two. Once apostrophes were removed from
+both texts, WER dropped to 8.6%.

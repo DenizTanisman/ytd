@@ -1,61 +1,62 @@
-# Video: H.264 · MP4 ile AV1 · MKV karşılaştırması (22 Ekim 2026)
+# Video: H.264 · MP4 vs AV1 · MKV (22 October 2026)
 
-ytd'ye "AV1 · MKV" video seçeneği eklendi ve ölçüm sonucunda varsayılan yapıldı. Bu seçenek
-YouTube'un AV1 görüntüsünü (yoksa VP9) Opus sesle birlikte, yeniden kodlamadan MKV'ye koyar.
-"H.264 · MP4" seçeneği QuickTime uyumluluğu için duruyor (`ytd.py --h264`).
+ytd gained an "AV1 · MKV" video option, and after these measurements it became the default. It puts
+YouTube's AV1 video (or VP9 if there is no AV1) together with Opus audio into an MKV, without re-encoding.
+The "H.264 · MP4" option stays for QuickTime compatibility (`ytd.py --h264`).
 
-## Yöntem
+## Method
 
-- **Video:** TEDxIstanbul, "Korku, Kaygı ve Endişe" (14:38; YouTube 2160p'ye kadar sunuyor).
-- Her iki seçenekle 720p, 1080p, 1440p ve 2160p istendi.
-- **Görüntü kalitesi:** VMAF (Netflix'in ölçüsü, 0–100; ~93 üstü gözle ayırt etmesi zor).
-  - Referans: YouTube'un en yüksek bit hızlı akışı olan 2160p VP9 (~3,6 Mbps).
-  - Her dosyadan 2:00'dan başlayan 60 sn'lik kesit alındı, 1080p'ye ölçeklendi ve referansla
-    karşılaştırıldı. Yani sonuç "1080p ekranda nasıl görünüyor" sorusunun cevabı.
-- **QuickTime:** macOS'in AVFoundation'ı dosyayı oynatılabilir buluyor mu.
-- **Transkript:** 1080p video dosyalarından doğrudan Whisper (`whisper-large-v3-turbo`) ile metin
-  çıkarıldı. Doğruluk, yükleyicinin elle yazdığı Türkçe altyazıya göre kelime hata oranıyla (WER) ölçüldü.
-- Ölçüm betiği: oturumun scratchpad'inde `opus_test/olcum_video.py` (projeye alınmadı).
+- **Video:** TEDxIstanbul, "Korku, Kaygı ve Endişe" (14:38; YouTube offers up to 2160p).
+- 720p, 1080p, 1440p and 2160p were requested with both options.
+- **Picture quality:** VMAF (Netflix's metric, 0–100; above ~93 is hard to tell apart by eye).
+  - Reference: YouTube's highest-bitrate stream, 2160p VP9 (~3.6 Mbps).
+  - A 60 s clip starting at 2:00 was taken from each file, scaled to 1080p and compared with the
+    reference. So the result answers "how does it look on a 1080p screen".
+- **QuickTime:** whether macOS's AVFoundation considers the file playable.
+- **Transcript:** text was extracted with Whisper (`whisper-large-v3-turbo`) directly from the 1080p video
+  files. Accuracy was measured as word error rate (WER) against the uploader's hand-written Turkish subtitles.
+- Measurement script: `opus_test/olcum_video.py` in the session scratchpad (not added to the project).
 
-## Sonuçlar
+## Results
 
-| İstenen | Seçenek | Gelen | Boyut | İndirme | VMAF | QuickTime |
+| Requested | Option | Received | Size | Download | VMAF | QuickTime |
 |---|---|---|---|---|---|---|
-| 720p | H.264 · MP4 | H.264 + AAC, 720p | 58,5 MB | 10,7 sn | 87,2 | açar |
-| 720p | AV1 · MKV | AV1 + Opus, 720p | **29,9 MB** | 8,4 sn | 87,6 | açmaz |
-| 1080p | H.264 · MP4 | H.264 + AAC, 1080p | 95,9 MB | 17,1 sn | 92,4 | açar |
-| 1080p | AV1 · MKV | AV1 + Opus, 1080p | **40,8 MB** | 9,6 sn | 92,8 | açmaz |
-| 1440p | H.264 · MP4 | **H.264, 1080p** (1440p yok) | 95,9 MB | — | 92,4 | açar |
-| 1440p | AV1 · MKV | AV1 + Opus, 1440p | 83,4 MB | 17,8 sn | 95,7 | açmaz |
-| 2160p | H.264 · MP4 | **H.264, 1080p** (2160p yok) | 95,9 MB | 22,9 sn | 92,4 | açar |
-| 2160p | AV1 · MKV | AV1 + Opus, 2160p | 144,0 MB | 31,5 sn | 96,5 | açmaz |
+| 720p | H.264 · MP4 | H.264 + AAC, 720p | 58.5 MB | 10.7 s | 87.2 | opens |
+| 720p | AV1 · MKV | AV1 + Opus, 720p | **29.9 MB** | 8.4 s | 87.6 | doesn't open |
+| 1080p | H.264 · MP4 | H.264 + AAC, 1080p | 95.9 MB | 17.1 s | 92.4 | opens |
+| 1080p | AV1 · MKV | AV1 + Opus, 1080p | **40.8 MB** | 9.6 s | 92.8 | doesn't open |
+| 1440p | H.264 · MP4 | **H.264, 1080p** (no 1440p) | 95.9 MB | — | 92.4 | opens |
+| 1440p | AV1 · MKV | AV1 + Opus, 1440p | 83.4 MB | 17.8 s | 95.7 | doesn't open |
+| 2160p | H.264 · MP4 | **H.264, 1080p** (no 2160p) | 95.9 MB | 22.9 s | 92.4 | opens |
+| 2160p | AV1 · MKV | AV1 + Opus, 2160p | 144.0 MB | 31.5 s | 96.5 | doesn't open |
 
-(H.264 1440p satırının indirme süresi 83,6 sn çıktı; aynı dosyanın diğer indirmeleri 17–23 sn,
-yani ağ dalgalanması. Tabloda verilmedi.)
+(The download time for the H.264 1440p row came out at 83.6 s; other downloads of the same file took
+17–23 s, so it was network fluctuation. It is left out of the table.)
 
-| Transkript (1080p videodan) | Whisper süresi | WER |
+| Transcript (from 1080p video) | Whisper time | WER |
 |---|---|---|
-| H.264 · MP4 (AAC ses) | 119,6 sn | 6,5 % |
-| AV1 · MKV (Opus ses) | 130,3 sn | 6,9 % |
-| Karşılaştırma: sadece ses, Opus (önceki ölçüm) | 95,0 sn | 6,9 % |
-| Karşılaştırma: sadece ses, M4A (önceki ölçüm) | 110,0 sn | 6,5 % |
+| H.264 · MP4 (AAC audio) | 119.6 s | 6.5 % |
+| AV1 · MKV (Opus audio) | 130.3 s | 6.9 % |
+| For comparison: audio only, Opus (previous measurement) | 95.0 s | 6.9 % |
+| For comparison: audio only, M4A (previous measurement) | 110.0 s | 6.5 % |
 
-## Çıkarımlar
+## Takeaways
 
-- **AV1 aynı kalitede yarı boyut:** 720p'de %49, 1080p'de %57 daha küçük. VMAF değeri eşit, hatta
-  biraz daha yüksek (87,6 / 87,2 ve 92,8 / 92,4). İndirmesi de daha hızlı.
-- **1080p üstü yalnız AV1 ile:** YouTube H.264'ü en fazla 1080p veriyor, bu yüzden "H.264 · MP4"
-  seçeneği 1440p ya da 2160p istense de 1080p indiriyor. AV1 gerçek 1440p (VMAF 95,7) ve 2160p
-  (96,5) veriyor; 2160p AV1 bile 1080p H.264'ten sadece %50 büyük.
-- **Tek eksi: QuickTime.** AV1 · MKV dosyalarını QuickTime açmıyor. VLC ve Chrome açıyor
-  (ikisi de bu Mac'te kurulu); M4 çipte AV1 donanımla çözüldüğü için oynatma akıcı olmalı.
-  QuickTime gerekiyorsa `--h264` / arayüzde "H.264 · MP4 (QuickTime)".
-- **Transkripte uygunluk:** Video dosyasından doğrudan transkript sorunsuz. Doğruluk, aynı sesin
-  sadece-ses indirmesiyle birebir aynı (AV1 → Opus ses → %6,9; MP4 → AAC ses → %6,5). Whisper
-  süresi video dosyasında yaklaşık 10–35 sn daha uzun: ffmpeg sesi büyük dosyanın içinden ayıklıyor
-  (süreler aynı ölçüm turunda değil, bir kısmı dalgalanma olabilir).
-  - Sadece metin lazımsa **Ses › Opus** ya da **Transkript** modu daha hızlı ve çok daha küçük
-    (12 MB / 41–96 MB).
-  - Hem video hem metin lazımsa video + "Transkript de çıkar" yeterli; ayrıca ses indirmeye gerek yok.
-- **Dil:** Bu ölçümde Whisper'a dil olarak "tr" verildi: YouTube dil bilgisi vermediği için ytd'nin
-  yeni yedek yöntemi başlıktaki Türkçe harflerden buldu.
+- **AV1 is half the size at the same quality:** 49% smaller at 720p, 57% smaller at 1080p. VMAF is equal,
+  even slightly higher (87.6 / 87.2 and 92.8 / 92.4). It also downloads faster.
+- **Above 1080p only with AV1:** YouTube serves H.264 only up to 1080p, so the "H.264 · MP4" option
+  downloads 1080p even when 1440p or 2160p is requested. AV1 gives real 1440p (VMAF 95.7) and 2160p
+  (96.5); even 2160p AV1 is only 50% larger than 1080p H.264.
+- **The one downside: QuickTime.** QuickTime does not open AV1 · MKV files. VLC and Chrome do
+  (both installed on this Mac); the M4 chip decodes AV1 in hardware, so playback should be smooth.
+  If you need QuickTime, use `--h264` / "H.264 · MP4 (QuickTime)" in the UI.
+- **Fit for transcripts:** transcribing directly from the video file works fine. Accuracy is identical to
+  the audio-only download of the same audio (AV1 → Opus audio → 6.9%; MP4 → AAC audio → 6.5%). Whisper
+  takes about 10–35 s longer on the video file: ffmpeg extracts the audio from the large file
+  (the times are not from the same measurement run, so part of this may be fluctuation).
+  - If you only need the text, **Ses › Opus** (Audio › Opus) or **Transkript** (Transcript) mode is
+    faster and much smaller (12 MB / 41–96 MB).
+  - If you need both video and text, video + "Transkript de çıkar" (also make a transcript) is enough;
+    no separate audio download needed.
+- **Language:** in this measurement "tr" was passed to Whisper as the language: since YouTube gave no
+  language information, ytd's new fallback found it from the Turkish letters in the title.
